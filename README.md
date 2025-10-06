@@ -1,61 +1,196 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# QR Code PDF Converter (40‑up)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Convert a **PDF with one QR per page** into an **A4 sheet with up to 40 QRs (5×8)** — perfect for label sheets.
 
-## About Laravel
+This is a tiny **Laravel** app with a clean 3‑step dashboard:
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+1) **Upload PDF** → 2) **Process** → 3) **Download PDF**
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+---
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## ✨ Features
 
-## Learning Laravel
+- **40‑up layout** by default (5 columns × 8 rows)
+- **Precise label geometry** controls (millimeters): columns/rows, label size, gaps, margins
+- **Vector‑safe**: imports each source page with FPDI to keep QRs crisp
+- **Windows/Laragon‑friendly** upload handling
+- No database required (uses **file sessions**)
+- Output stored under `storage/app/public/qrsheets` (public via `storage` symlink)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+---
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+## 🧰 Tech Stack
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- **Laravel 11**
+- **setasign/fpdi-fpdf** for PDF import & placement
+- **TailwindCSS (CDN)** for the simple dashboard UI
 
-## Laravel Sponsors
+---
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## ✅ Requirements
 
-### Premium Partners
+- PHP **8.2+**
+- Composer
+- Web server (Laravel's built‑in server is fine)
+- (Optional) GD/Imagick if you later add cropping/regeneration features
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+---
 
-## Contributing
+## 📦 Installation
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+# 1) Create the project
+composer create-project laravel/laravel qr-pdf-40up
+cd qr-pdf-40up
 
-## Code of Conduct
+# 2) Add the PDF library
+composer require setasign/fpdi-fpdf:^2.0
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+# 3) Expose storage/public for downloads
+php artisan storage:link
+```
 
-## Security Vulnerabilities
+### Minimal `.env` setup
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Use file sessions to avoid DB driver issues:
 
-## License
+```env
+SESSION_DRIVER=file
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+> You can switch to DB sessions later if you enable SQLite/MySQL and run migrations.
+
+---
+
+## ▶️ Run
+
+```bash
+php artisan serve
+```
+Open `http://127.0.0.1:8000`, upload your **1‑QR‑per‑page** PDF, click **Process**, then **Download** the generated 40‑up PDF.
+
+---
+
+## 🗂 Project Structure (relevant files)
+
+```
+app/
+  Http/Controllers/Qr40UpController.php   # Upload → Process → Download flow
+  Services/Pdf40UpService.php             # Core: tiles pages into a 5×8 grid
+resources/
+  views/
+    layouts/app.blade.php                 # Basic layout + sidebar instructions
+    components/stepper.blade.php          # 3-step progress header
+    qr/index.blade.php                    # Step 1: Upload + advanced options
+    qr/done.blade.php                     # Step 3: Download page
+routes/
+  web.php                                 # GET / and POST /process
+```
+
+---
+
+## 🔧 How It Works
+
+- Each page from your source PDF (one QR per page) is **imported as a template** with FPDI.
+- The service **scales** that page to your **label size** and **places** it into a cell in an A4 grid.
+- When a sheet fills (e.g., 40 cells), a **new A4 page** is added; processing continues until all pages are placed.
+
+**Default A4 layout (mm):**
+
+| Setting        | Default |
+|----------------|---------|
+| Columns × Rows | 5 × 8   |
+| Label Width    | 30.0 mm |
+| Label Height   | 30.0 mm |
+| Gap X          | 4.0 mm  |
+| Gap Y          | 4.0 mm  |
+| Margin Left    | 22.0 mm |
+| Margin Top     | 22.0 mm |
+
+You can override all of these via the **“Advanced layout (millimeters)”** panel in the upload form.
+
+---
+
+## 🖨 Printing Tips
+
+- In print settings, choose **Actual size / 100% scale** (avoid “Fit to page”).
+- Do a **test print** on plain paper; hold it behind your label sheet against light to check alignment.
+- Fine‑tune by adjusting: `margin_left`, `margin_top`, `gap_x`, `gap_y`, `label_w`, `label_h`.
+
+---
+
+## 🚑 Troubleshooting
+
+### 1) `could not find driver (Connection: sqlite ...)`
+Laravel tried DB sessions. Use file sessions (no DB required):
+
+```env
+SESSION_DRIVER=file
+php artisan config:clear
+```
+
+### 2) `fopen(...storage/app/uploads/xxx.pdf): Failed to open stream`
+The upload didn't land in storage before processing. This project includes a **Windows‑safe** file move:
+
+- Ensures `storage/app/uploads` exists
+- Moves the uploaded file with a UUID filename
+- Uses the absolute path when calling FPDI
+
+Checklist:
+- The upload form has `enctype="multipart/form-data"`
+- `php.ini`: `file_uploads=On`; `upload_max_filesize` & `post_max_size` exceed your PDF size
+- You ran `php artisan storage:link` once
+
+### 3) Output not downloadable
+Ensure the generated file goes to `storage/app/public/qrsheets` and that the public `storage/` symlink exists.
+
+---
+
+## 🧪 Large PDFs / Performance
+
+A few hundred pages is fine to process synchronously. For very large inputs, convert the controller to dispatch a **queued job** and show a progress page (can be added later).
+
+---
+
+## 🧩 Optional Enhancements
+
+- **Crop only the QR** (remove barcode/text): add an Imagick step to rasterize + crop each source page, then place PNGs into the grid.
+- **Regenerate QRs from raw data** instead of importing pages: use `simplesoftwareio/simple-qrcode` + `barryvdh/laravel-dompdf` and a CSS grid.
+
+---
+
+## 🔒 Storage Notes
+
+- Uploads saved under `storage/app/uploads`
+- Generated PDFs saved under `storage/app/public/qrsheets`
+- Public access via the `public/storage` symlink created by `php artisan storage:link`
+- Consider a scheduled cleanup for stale files in production
+
+---
+
+## 🔗 Key Code References
+
+**Routing (`routes/web.php`)**
+```php
+Route::get('/', [\App\Http\Controllers\Qr40UpController::class, 'index'])->name('qr.index');
+Route::post('/process', [\App\Http\Controllers\Qr40UpController::class, 'process'])->name('qr.process');
+```
+
+**Service call**
+```php
+$svc->make($absoluteInputPdfPath, $absoluteOutputPdfPath, [
+  // optional overrides: 'cols','rows','label_w','label_h','gap_x','gap_y','margin_left','margin_top'
+]);
+```
+
+---
+
+## 🤝 Contributing
+
+PRs and issues are welcome — especially label presets and cropping modes. Please include measured values and a sample PDF when possible.
+
+---
+
+## 📝 License
+
+MIT — do whatever you like; attribution appreciated.
