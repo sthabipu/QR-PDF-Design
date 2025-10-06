@@ -193,4 +193,4 @@ PRs and issues are welcome — especially label presets and cropping modes. Plea
 
 ## 📝 License
 
-MIT — do whatever you like; attribution appreciated.
+The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
